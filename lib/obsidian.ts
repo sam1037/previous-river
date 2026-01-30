@@ -1,5 +1,6 @@
 import { App, TFile } from "obsidian";
 import { Notice, getLinkpath } from "obsidian";
+import { moment } from 'obsidian';
 import { extractLinktext } from "./utils";
 
 /**
@@ -25,11 +26,45 @@ export function getPreviousLinkpath(app: App, file: TFile): string | null {
 }
 
 /**
+ * Determine if a file is daily note given it's basename
+ * TODO not hardcode the date format, see how daily note/ calendar/ periodic note do it, maybe daily note has api to get it's format
+ */
+export function isDailyNote(fileBasename: string): boolean {
+  return moment(fileBasename, "DD-MM-YY", true).isValid(); 
+}
+
+// TODO use metadata cache approach instead of this linear scan with limit approach
+export function getPreviousDailyNote(file: TFile): TFile | null {
+  // new Notice(`get previous daily note for note "${file.name} function to be implemented"`);
+  const format = 'DD-MM-YY';
+  const maxDaysToSearch = 365;
+  let searchDate = moment(file.basename, format).subtract(1, 'days');
+  const currentFilePath = file?.path || "";
+  
+  for (let i =0; i< maxDaysToSearch; i++) {
+    const target = this.app.metadataCache.getFirstLinkpathDest(searchDate.format(format), currentFilePath); //? get app from injection or this.app? diff?
+    if (target != null) {
+      return target;
+    }
+    searchDate.subtract(1, 'days');
+  }
+
+  return null;
+}
+
+/**
  * Retrieve the previous note based on the `previous` property in the frontmatter.
  */
+// ? how to get the daily note just b4 it though? daily note has diff name format, e.g dd-MM-yy, looping O(n)?
+// let's assume the format is dd-MM-yy for now
 export function getPreviousNote(app: App, file: TFile): TFile | null {
   const previousLinkpath = getPreviousLinkpath(app, file);
   if (!previousLinkpath) {
+    // check if note is daily
+    if (isDailyNote(file.basename)) {
+      return getPreviousDailyNote(file);
+    }
+    // TODO feature for handling weekly note later
     return null;
   }
 
