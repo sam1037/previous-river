@@ -33,37 +33,52 @@ export function isDailyNote(fileBasename: string, dailyNoteFormat: string): bool
   return moment(fileBasename, dailyNoteFormat, true).isValid(); 
 }
 
-// TODO use metadata cache approach instead of this linear scan with limit approach, 
-// TODO refactor the following 2 functions into sth like findAdjDailyNote with direction para
-// ? do i want to move these 2 functions to the utils.ts file?
-export function getPreviousDailyNote(app: App, file: TFile, dailyNoteFormat: string): TFile | null {
-  const maxDaysToSearch = 365;
-  let searchDate = moment(file.basename, dailyNoteFormat).subtract(1, 'days');
-  const currentFilePath = file?.path || "";
-  
-  for (let i =0; i< maxDaysToSearch; i++) {
-    const target = app.metadataCache.getFirstLinkpathDest(searchDate.format(dailyNoteFormat), currentFilePath); 
-    if (target != null) {
-      return target;
-    }
-    searchDate.subtract(1, 'days');
+/**
+ * Determine if a file is a weekly note given its basename.
+ */
+export function isWeeklyNote(fileBasename: string): boolean {
+  return moment(fileBasename, 'gggg-[W]ww', true).isValid();
+}
+
+/**
+ * Helper to find adjacent periodic notes (daily/weekly).
+ */
+function findAdjacentPeriodicNote(
+  app: App,
+  file: TFile,
+  format: string,
+  direction: 1 | -1,
+  unit: 'days' | 'weeks',
+  limit: number
+): TFile | null {
+  let searchDate = moment(file.basename, format).add(direction, unit);
+  const currentFilePath = file.path;
+
+  for (let i = 0; i < limit; i++) {
+    const target = app.metadataCache.getFirstLinkpathDest(searchDate.format(format), currentFilePath);
+    if (target) return target;
+    searchDate.add(direction, unit);
   }
   return null;
 }
 
+// TODO use metadata cache approach instead of this linear scan with limit approach, 
+// TODO refactor the following 2 functions into sth like findAdjDailyNote with direction para
+// ? do i want to move these 2 functions to the utils.ts file?
+export function getPreviousDailyNote(app: App, file: TFile, dailyNoteFormat: string): TFile | null {
+  return findAdjacentPeriodicNote(app, file, dailyNoteFormat, -1, 'days', 365);
+}
+
 export function getNextDailyNote(app: App, file: TFile, dailyNoteFormat: string): TFile | null {
-  const maxDaysToSearch = 365;
-  let searchDate = moment(file.basename, dailyNoteFormat).add(1, 'days');
-  const currentFilePath = file?.path || "";
-  
-  for (let i =0; i< maxDaysToSearch; i++) {
-    const target = app.metadataCache.getFirstLinkpathDest(searchDate.format(dailyNoteFormat), currentFilePath); 
-    if (target != null) {
-      return target;
-    }
-    searchDate.add(1, 'days');
-  }
-  return null;
+  return findAdjacentPeriodicNote(app, file, dailyNoteFormat, 1, 'days', 365);
+}
+
+export function getPreviousWeeklyNote(app: App, file: TFile): TFile | null {
+  return findAdjacentPeriodicNote(app, file, 'gggg-[W]ww', -1, 'weeks', 52);
+}
+
+export function getNextWeeklyNote(app: App, file: TFile): TFile | null {
+  return findAdjacentPeriodicNote(app, file, 'gggg-[W]ww', 1, 'weeks', 52);
 }
 
 /**
@@ -76,7 +91,10 @@ export function getPreviousNote(app: App, file: TFile, settings: MyPluginSetting
     if (settings.enableDailyNoteNav && isDailyNote(file.basename, settings.dailyNoteFormat)) {
       return getPreviousDailyNote(app, file, settings.dailyNoteFormat);
     }
-    // TODO feature for handling weekly note later
+    // handle weekly note nav
+    if (isWeeklyNote(file.basename)) {
+      return getPreviousWeeklyNote(app, file);
+    }
     return null;
   }
 
@@ -128,6 +146,14 @@ export function getNextNotes(app: App, file: TFile, settings: MyPluginSettings):
     const nextDailyNote = getNextDailyNote(app, file, settings.dailyNoteFormat);
     if (nextDailyNote != null && !nextNotes.includes(nextDailyNote)) {
       nextNotes.push(nextDailyNote);
+    }
+  }
+
+  // handle weekly note implicit next notes
+  if (isWeeklyNote(file.basename)) {
+    const nextWeeklyNote = getNextWeeklyNote(app, file);
+    if (nextWeeklyNote != null && !nextNotes.includes(nextWeeklyNote)) {
+      nextNotes.push(nextWeeklyNote);
     }
   }
 
