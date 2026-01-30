@@ -1,9 +1,14 @@
 import { Plugin, TFile } from "obsidian";
 import { NextNoteSuggestModal } from "./lib/NextNoteSuggestModal";
 import { getActiveFile, getPreviousNote, getNextNotes } from "./lib/obsidian";
+import {DEFAULT_SETTINGS, MyPluginSettings, MySettingTab} from "./lib/settings";
 
 export default class PreviousRiverPlugin extends Plugin {
-  onload() {
+	settings: MyPluginSettings;
+
+  async onload() {
+    await this.loadSettings();
+
     this.addCommand({
       id: "go-to-previous-note",
       name: "Go to previous note",
@@ -27,6 +32,16 @@ export default class PreviousRiverPlugin extends Plugin {
       name: "Go to last note",
       callback: () => this.goToLastNote(),
     });
+
+    this.addSettingTab(new MySettingTab(this.app, this));
+  }
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+  }
+
+  async saveSettings() {
+      await this.saveData(this.settings);
   }
 
   async goToPreviousNote() {
@@ -35,7 +50,7 @@ export default class PreviousRiverPlugin extends Plugin {
       return;
     }
 
-    const target = getPreviousNote(this.app, file);
+    const target = getPreviousNote(this.app, file, this.settings);
     if (!target) {
       return;
     }
@@ -49,7 +64,7 @@ export default class PreviousRiverPlugin extends Plugin {
       return;
     }
   
-    const nextNotes = getNextNotes(this.app, file);
+    const nextNotes = getNextNotes(this.app, file, this.settings);
   
     if (nextNotes.length === 0) {
       return;
@@ -75,7 +90,7 @@ export default class PreviousRiverPlugin extends Plugin {
     const startNote = file;
     let firstNote = file;
     while (true) {
-      const previousNote = getPreviousNote(this.app, firstNote);
+      const previousNote = getPreviousNote(this.app, firstNote, this.settings);
       if (!previousNote || previousNote === startNote) {
         break;
       }
@@ -96,7 +111,7 @@ export default class PreviousRiverPlugin extends Plugin {
     const startNote = file;
     let lastNote = file;
     while (true) {
-      const nextNotes = getNextNotes(this.app, lastNote);
+      const nextNotes = getNextNotes(this.app, lastNote, this.settings);
       if (nextNotes.length === 0 || nextNotes.includes(startNote)) {
         break;
       }
