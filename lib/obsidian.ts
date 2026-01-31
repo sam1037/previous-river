@@ -36,8 +36,8 @@ export function isDailyNote(fileBasename: string, dailyNoteFormat: string): bool
 /**
  * Determine if a file is a weekly note given its basename.
  */
-export function isWeeklyNote(fileBasename: string): boolean {
-  return moment(fileBasename, 'gggg-[W]ww', true).isValid();
+export function isWeeklyNote(fileBasename: string, weeklyNoteFormat: string): boolean {
+  return moment(fileBasename, weeklyNoteFormat, true).isValid();
 }
 
 /**
@@ -73,12 +73,12 @@ export function getNextDailyNote(app: App, file: TFile, dailyNoteFormat: string)
   return findAdjacentPeriodicNote(app, file, dailyNoteFormat, 1, 'days', 365);
 }
 
-export function getPreviousWeeklyNote(app: App, file: TFile): TFile | null {
-  return findAdjacentPeriodicNote(app, file, 'gggg-[W]ww', -1, 'weeks', 52);
+export function getPreviousWeeklyNote(app: App, file: TFile, weeklyNoteFormat: string): TFile | null {
+  return findAdjacentPeriodicNote(app, file, weeklyNoteFormat, -1, 'weeks', 52);
 }
 
-export function getNextWeeklyNote(app: App, file: TFile): TFile | null {
-  return findAdjacentPeriodicNote(app, file, 'gggg-[W]ww', 1, 'weeks', 52);
+export function getNextWeeklyNote(app: App, file: TFile, weeklyNoteFormat: string): TFile | null {
+  return findAdjacentPeriodicNote(app, file, weeklyNoteFormat, 1, 'weeks', 52);
 }
 
 /**
@@ -92,8 +92,8 @@ export function getPreviousNote(app: App, file: TFile, settings: MyPluginSetting
       return getPreviousDailyNote(app, file, settings.dailyNoteFormat);
     }
     // handle weekly note nav
-    if (isWeeklyNote(file.basename)) {
-      return getPreviousWeeklyNote(app, file);
+    if (settings.enableWeeklyNoteNav && isWeeklyNote(file.basename, settings.weeklyNoteFormat)) {
+      return getPreviousWeeklyNote(app, file, settings.weeklyNoteFormat);
     }
     return null;
   }
@@ -150,8 +150,8 @@ export function getNextNotes(app: App, file: TFile, settings: MyPluginSettings):
   }
 
   // handle weekly note implicit next notes
-  if (isWeeklyNote(file.basename)) {
-    const nextWeeklyNote = getNextWeeklyNote(app, file);
+  if (settings.enableWeeklyNoteNav && isWeeklyNote(file.basename, settings.weeklyNoteFormat)) {
+    const nextWeeklyNote = getNextWeeklyNote(app, file, settings.weeklyNoteFormat);
     if (nextWeeklyNote != null && !nextNotes.includes(nextWeeklyNote)) {
       nextNotes.push(nextWeeklyNote);
     }
