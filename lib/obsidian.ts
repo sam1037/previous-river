@@ -27,7 +27,7 @@ export function getPreviousLinkpath(app: App, file: TFile): string | null {
 }
 
 /**
- * Determine if a file is daily note given it's basename
+ * Determine if a file is daily note
  */
 export function isDailyNote(
   file: TFile,
@@ -41,7 +41,7 @@ export function isDailyNote(
 }
 
 /**
- * Determine if a file is a weekly note given its basename.
+ * Determine if a file is a weekly note
  */
 export function isWeeklyNote(
   file: TFile,
