@@ -1,10 +1,14 @@
 import { Plugin, TFile } from "obsidian";
 import { NextNoteSuggestModal } from "./lib/NextNoteSuggestModal";
 import { getActiveFile, getPreviousNote, getNextNotes } from "./lib/obsidian";
-import {DEFAULT_SETTINGS, MyPluginSettings, MySettingTab} from "./lib/settings";
+import {
+  DEFAULT_SETTINGS,
+  MyPluginSettings,
+  MySettingTab,
+} from "./lib/settings";
 
 export default class PreviousRiverPlugin extends Plugin {
-	settings: MyPluginSettings;
+  settings: MyPluginSettings;
 
   async onload() {
     await this.loadSettings();
@@ -37,11 +41,15 @@ export default class PreviousRiverPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+    this.settings = Object.assign(
+      {},
+      DEFAULT_SETTINGS,
+      (await this.loadData()) as Partial<MyPluginSettings>,
+    );
   }
 
   async saveSettings() {
-      await this.saveData(this.settings);
+    await this.saveData(this.settings);
   }
 
   async goToPreviousNote() {
@@ -63,13 +71,13 @@ export default class PreviousRiverPlugin extends Plugin {
     if (!file) {
       return;
     }
-  
+
     const nextNotes = getNextNotes(this.app, file, this.settings);
-  
+
     if (nextNotes.length === 0) {
       return;
     }
-  
+
     if (nextNotes.length === 1) {
       // If only one candidate exists, open it directly.
       await this.app.workspace.getLeaf().openFile(nextNotes[0]);
