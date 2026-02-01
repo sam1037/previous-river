@@ -1,8 +1,8 @@
 import { App, TFile } from "obsidian";
 import { Notice, getLinkpath } from "obsidian";
-import { moment } from 'obsidian';
+import { moment } from "obsidian";
 import { extractLinktext } from "./utils";
-import { MyPluginSettings } from "./settings"
+import { MyPluginSettings } from "./settings";
 
 /**
  * Get the currently active file.
@@ -29,78 +29,101 @@ export function getPreviousLinkpath(app: App, file: TFile): string | null {
 /**
  * Determine if a file is daily note given it's basename
  */
-export function isDailyNote(file: TFile, dailyNoteFormat: string, folderPath: string): boolean {
-  return file.parent?.path === folderPath && moment(file.basename, dailyNoteFormat, true).isValid(); 
+export function isDailyNote(
+  file: TFile,
+  dailyNoteFormat: string,
+  folderPath: string,
+): boolean {
+  return (
+    file.parent?.path === folderPath &&
+    moment(file.basename, dailyNoteFormat, true).isValid()
+  );
 }
 
 /**
  * Determine if a file is a weekly note given its basename.
  */
-export function isWeeklyNote(file: TFile, weeklyNoteFormat: string, folderPath: string): boolean {
-  return file.parent?.path === folderPath && moment(file.basename, weeklyNoteFormat, true).isValid();
+export function isWeeklyNote(
+  file: TFile,
+  weeklyNoteFormat: string,
+  folderPath: string,
+): boolean {
+  return (
+    file.parent?.path === folderPath &&
+    moment(file.basename, weeklyNoteFormat, true).isValid()
+  );
 }
 
 /**
  * Helper to find adjacent periodic notes (daily/weekly).
  */
+// TODO use metadata cache approach instead of this linear scan with limit approach (see periodic notes plugin)
 function findAdjacentPeriodicNote(
   app: App,
   file: TFile,
   format: string,
   direction: 1 | -1,
-  unit: 'days' | 'weeks',
-  limit: number
+  unit: "days" | "weeks",
+  limit: number,
 ): TFile | null {
   let searchDate = moment(file.basename, format).add(direction, unit);
   const currentFilePath = file.path;
 
   for (let i = 0; i < limit; i++) {
-    const target = app.metadataCache.getFirstLinkpathDest(searchDate.format(format), currentFilePath);
+    const target = app.metadataCache.getFirstLinkpathDest(
+      searchDate.format(format),
+      currentFilePath,
+    );
     if (target) return target;
     searchDate.add(direction, unit);
   }
   return null;
 }
 
-// TODO use metadata cache approach instead of this linear scan with limit approach, 
-// TODO refactor the following 2 functions into sth like findAdjDailyNote with direction para
-// ? do i want to move these 2 functions to the utils.ts file?
-export function getPreviousDailyNote(app: App, file: TFile, dailyNoteFormat: string): TFile | null {
-  return findAdjacentPeriodicNote(app, file, dailyNoteFormat, -1, 'days', 365);
-}
-
-export function getNextDailyNote(app: App, file: TFile, dailyNoteFormat: string): TFile | null {
-  return findAdjacentPeriodicNote(app, file, dailyNoteFormat, 1, 'days', 365);
-}
-
-export function getPreviousWeeklyNote(app: App, file: TFile, weeklyNoteFormat: string): TFile | null {
-  return findAdjacentPeriodicNote(app, file, weeklyNoteFormat, -1, 'weeks', 52);
-}
-
-export function getNextWeeklyNote(app: App, file: TFile, weeklyNoteFormat: string): TFile | null {
-  return findAdjacentPeriodicNote(app, file, weeklyNoteFormat, 1, 'weeks', 52);
-}
-
 /**
  * Retrieve the previous note based on the `previous` property in the frontmatter.
  */
-export function getPreviousNote(app: App, file: TFile, settings: MyPluginSettings): TFile | null {
+export function getPreviousNote(
+  app: App,
+  file: TFile,
+  settings: MyPluginSettings,
+): TFile | null {
   const previousLinkpath = getPreviousLinkpath(app, file);
   if (!previousLinkpath) {
     // handle daily note nav
-    if (settings.enableDailyNoteNav && isDailyNote(file, settings.dailyNoteFormat, settings.dailyFolder)) {
-      return getPreviousDailyNote(app, file, settings.dailyNoteFormat);
+    if (
+      settings.enableDailyNoteNav &&
+      isDailyNote(file, settings.dailyNoteFormat, settings.dailyFolder)
+    ) {
+      return findAdjacentPeriodicNote(
+        app,
+        file,
+        settings.dailyNoteFormat,
+        -1,
+        "days",
+        365,
+      );
     }
     // handle weekly note nav
-    if (settings.enableWeeklyNoteNav && isWeeklyNote(file, settings.weeklyNoteFormat, settings.weeklyFolder)) {
-      return getPreviousWeeklyNote(app, file, settings.weeklyNoteFormat);
+    if (
+      settings.enableWeeklyNoteNav &&
+      isWeeklyNote(file, settings.weeklyNoteFormat, settings.weeklyFolder)
+    ) {
+      return findAdjacentPeriodicNote(
+        app,
+        file,
+        settings.weeklyNoteFormat,
+        -1,
+        "weeks",
+        52,
+      );
     }
     return null;
   }
 
   const target = app.metadataCache.getFirstLinkpathDest(
     previousLinkpath,
-    file.path
+    file.path,
   );
 
   if (!target) {
@@ -114,7 +137,11 @@ export function getPreviousNote(app: App, file: TFile, settings: MyPluginSetting
 /**
  * Retrieve notes that list the current file as their `previous` note.
  */
-export function getNextNotes(app: App, file: TFile, settings: MyPluginSettings): TFile[] {
+export function getNextNotes(
+  app: App,
+  file: TFile,
+  settings: MyPluginSettings,
+): TFile[] {
   const currentPath = file.path;
   const backlinks = app.metadataCache.resolvedLinks;
   const nextNotes: TFile[] = [];
@@ -136,22 +163,45 @@ export function getNextNotes(app: App, file: TFile, settings: MyPluginSettings):
     }
 
     // Add only if the `previous` field points to the current note.
-    if (previousLinkText === file.basename || previousLinkText === currentPath) {
+    if (
+      previousLinkText === file.basename ||
+      previousLinkText === currentPath
+    ) {
       nextNotes.push(targetFile);
     }
   }
 
   // handle daily note implicit next notes
-  if (settings.enableDailyNoteNav && isDailyNote(file, settings.dailyNoteFormat, settings.dailyFolder)) {
-    const nextDailyNote = getNextDailyNote(app, file, settings.dailyNoteFormat);
+  if (
+    settings.enableDailyNoteNav &&
+    isDailyNote(file, settings.dailyNoteFormat, settings.dailyFolder)
+  ) {
+    const nextDailyNote = findAdjacentPeriodicNote(
+      app,
+      file,
+      settings.dailyNoteFormat,
+      1,
+      "days",
+      365,
+    );
     if (nextDailyNote != null && !nextNotes.includes(nextDailyNote)) {
       nextNotes.push(nextDailyNote);
     }
   }
 
   // handle weekly note implicit next notes
-  if (settings.enableWeeklyNoteNav && isWeeklyNote(file, settings.weeklyNoteFormat, settings.weeklyFolder)) {
-    const nextWeeklyNote = getNextWeeklyNote(app, file, settings.weeklyNoteFormat);
+  if (
+    settings.enableWeeklyNoteNav &&
+    isWeeklyNote(file, settings.weeklyNoteFormat, settings.weeklyFolder)
+  ) {
+    const nextWeeklyNote = findAdjacentPeriodicNote(
+      app,
+      file,
+      settings.weeklyNoteFormat,
+      1,
+      "weeks",
+      365,
+    );
     if (nextWeeklyNote != null && !nextNotes.includes(nextWeeklyNote)) {
       nextNotes.push(nextWeeklyNote);
     }
