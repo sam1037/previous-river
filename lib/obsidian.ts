@@ -260,6 +260,39 @@ export async function findLastNote(
 	return lastNote;
 }
 
+export function isPeriodicNote(file: TFile, settings: MyPluginSettings): boolean {
+	return (
+		(settings.enableDailyNoteNav && isDailyNote(file, settings.dailyNoteFormat, settings.dailyFolder)) ||
+		(settings.enableWeeklyNoteNav && isWeeklyNote(file, settings.weeklyNoteFormat, settings.weeklyFolder))
+	);
+}
+
+export async function createNextNote(app: App, file: TFile): Promise<TFile> {
+	const folderPath = file.parent?.path ?? "";
+	const baseName = file.basename;
+
+	let newName = `${baseName}_next`;
+	let newPath = folderPath ? `${folderPath}/${newName}.md` : `${newName}.md`;
+
+	let counter = 1;
+	while (app.vault.getAbstractFileByPath(newPath)) {
+		newName = `${baseName}_next ${counter}`;
+		newPath = folderPath ? `${folderPath}/${newName}.md` : `${newName}.md`;
+		counter++;
+	}
+
+	const tags = app.metadataCache.getFileCache(file)?.frontmatter?.tags;
+
+	const newFile = await app.vault.create(newPath, "");
+	await app.fileManager.processFrontMatter(newFile, (fm) => {
+		fm.previous = `[[${baseName}]]`;
+		if (tags !== undefined) {
+			fm.tags = tags;
+		}
+	});
+	return newFile;
+}
+
 export async function findFirstNote(
 	app: App,
 	startNote: TFile,

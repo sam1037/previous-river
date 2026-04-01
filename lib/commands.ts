@@ -1,7 +1,7 @@
 import { App, TFile, Notice } from "obsidian";
 import { ConfirmModal } from "./ConfirmModal";
 import { NextNoteSuggestModal } from "./NextNoteSuggestModal";
-import { getActiveFile, getPreviousNote, getNextNotes, detachNote, setPreviousProperty, findLastNote, findFirstNote } from "./obsidian";
+import { getActiveFile, getPreviousNote, getNextNotes, detachNote, setPreviousProperty, findLastNote, findFirstNote, isPeriodicNote, createNextNote } from "./obsidian";
 import { MyPluginSettings } from "./settings";
 
 export async function goToPreviousNoteCommand(app: App, settings: MyPluginSettings) {
@@ -171,6 +171,21 @@ export async function insertNoteToFirstCommand(app: App, settings: MyPluginSetti
         fm.previous = "ROOT";
     });
     new Notice(`Inserted note before ${firstNote.basename}`);
+}
+
+export async function createNextNoteCommand(app: App, settings: MyPluginSettings) {
+    const file = getActiveFile(app);
+    if (!file) {
+        return;
+    }
+
+    if (isPeriodicNote(file, settings)) {
+        new Notice("Create next note is not supported for periodic notes.");
+        return;
+    }
+
+    const newFile = await createNextNote(app, file);
+    await app.workspace.getLeaf().openFile(newFile);
 }
 
 function getSortedMarkdownFiles(app: App): TFile[] {

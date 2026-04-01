@@ -8,6 +8,7 @@ import {
 	insertNoteToLastCommand,
 	insertNoteCommand,
 	insertNoteToFirstCommand,
+	createNextNoteCommand,
 } from "./lib/commands";
 import {
 	DEFAULT_SETTINGS,
@@ -67,6 +68,12 @@ export default class PreviousRiverPlugin extends Plugin {
 			id: "insert-note-to-first",
 			name: "Insert note to first",
 			callback: () => insertNoteToFirstCommand(this.app, this.settings),
+		});
+
+		this.addCommand({
+			id: "create-next-note",
+			name: "Create next note",
+			callback: () => createNextNoteCommand(this.app, this.settings),
 		});
 
 		this.addSettingTab(new MySettingTab(this.app, this));
