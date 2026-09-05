@@ -184,7 +184,7 @@ export async function createNextNoteCommand(app: App, settings: MyPluginSettings
         return;
     }
 
-    const newFile = await createNextNote(app, file);
+    const newFile = await createNextNote(app, file, settings);
     await app.workspace.getLeaf().openFile(newFile);
 }
 

@@ -10,6 +10,9 @@ export interface MyPluginSettings {
     enableWeeklyNoteNav: boolean;
     weeklyNoteFormat: string;
     weeklyFolder: string;
+
+    enableNextNoteDateIncrement: boolean;
+    nextNoteDateFormat: string;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -19,7 +22,10 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 
     enableWeeklyNoteNav: true,
     weeklyNoteFormat: 'gggg-[W]ww',
-    weeklyFolder: '/'
+    weeklyFolder: '/',
+
+    enableNextNoteDateIncrement: true,
+    nextNoteDateFormat: 'MMM, YY'
 }
 
 export class MySettingTab extends PluginSettingTab {
@@ -141,6 +147,46 @@ export class MySettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 })
             });
-        
+
+        // settings for the "Create next note" command
+        new Setting(containerEl)
+            .setName('Create Next Note Settings')
+            .setHeading();
+
+        new Setting(containerEl)
+            .setName('Increment date in note name')
+            .setDesc("When creating a next note, if the current note's name contains a date matching the format below, advance it by one month instead of appending '_next'. For example, with format 'MMM, YY', \"Project Aug, 26\" becomes \"Project Sep, 26\".")
+            .addToggle(toggle => toggle
+            .setValue(this.plugin.settings.enableNextNoteDateIncrement)
+            .onChange(async (value) => {
+                this.plugin.settings.enableNextNoteDateIncrement = value;
+                await this.plugin.saveSettings();
+                this.display();
+            })
+            );
+
+        if (this.plugin.settings.enableNextNoteDateIncrement) {
+            const nextNoteDateDesc = document.createDocumentFragment();
+            nextNoteDateDesc.appendText('For a list of all available tokens, see the ');
+            nextNoteDateDesc.createEl('a', {
+                text: 'format reference',
+                attr: { href: 'https://momentjs.com/docs/#/displaying/format/', target: '_blank' }
+            });
+            nextNoteDateDesc.createEl('br');
+            nextNoteDateDesc.appendText('Your current syntax looks like this: ');
+            const nextNoteDateSampleEl = nextNoteDateDesc.createEl('b', 'u-pop');
+
+            new Setting(containerEl)
+                .setName('Next note date format')
+                .setDesc(nextNoteDateDesc)
+                .addMomentFormat(momentFormat => momentFormat
+                .setValue(this.plugin.settings.nextNoteDateFormat)
+                .setSampleEl(nextNoteDateSampleEl)
+                .setDefaultFormat('MMM, YY')
+                .onChange(async (value) => {
+                    this.plugin.settings.nextNoteDateFormat = value || DEFAULT_SETTINGS.nextNoteDateFormat;
+                    await this.plugin.saveSettings();
+                }));
+        }
 	}
 }

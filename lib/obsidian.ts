@@ -1,6 +1,7 @@
 import { App, TFile } from "obsidian";
 import { Notice, getLinkpath } from "obsidian";
 import { moment } from "obsidian";
+import type { Moment } from "moment";
 import { extractLinktext } from "./utils";
 import { MyPluginSettings } from "./settings";
 import { NextNoteSuggestModal } from "./NextNoteSuggestModal";
@@ -267,16 +268,66 @@ export function isPeriodicNote(file: TFile, settings: MyPluginSettings): boolean
 	);
 }
 
-export async function createNextNote(app: App, file: TFile): Promise<TFile> {
+/**
+ * Find a substring of `text` that strictly matches the given moment format,
+ * scanning whitespace-delimited token windows. Returns the longest match found.
+ */
+function findDateInString(
+	text: string,
+	format: string,
+): { start: number; end: number; date: Moment } | null {
+	const tokens: { start: number; end: number }[] = [];
+	const tokenRegex = /\S+/g;
+	let tokenMatch;
+	while ((tokenMatch = tokenRegex.exec(text))) {
+		tokens.push({ start: tokenMatch.index, end: tokenMatch.index + tokenMatch[0].length });
+	}
+
+	let best: { start: number; end: number; date: Moment } | null = null;
+	for (let i = 0; i < tokens.length; i++) {
+		for (let j = i; j < tokens.length; j++) {
+			const start = tokens[i].start;
+			const end = tokens[j].end;
+			const candidate = text.slice(start, end);
+			const parsed = moment(candidate, format, true);
+			if (parsed.isValid() && (!best || end - start > best.end - best.start)) {
+				best = { start, end, date: parsed };
+			}
+		}
+	}
+	return best;
+}
+
+/**
+ * Compute the basename for a "next" note, advancing an embedded date by one
+ * month when the current name contains a substring matching `dateFormat`,
+ * otherwise falling back to appending "_next".
+ */
+export function getNextNoteBaseName(
+	baseName: string,
+	settings: MyPluginSettings,
+): string {
+	if (settings.enableNextNoteDateIncrement) {
+		const match = findDateInString(baseName, settings.nextNoteDateFormat);
+		if (match) {
+			const nextDateText = match.date.clone().add(1, "month").format(settings.nextNoteDateFormat);
+			return baseName.slice(0, match.start) + nextDateText + baseName.slice(match.end);
+		}
+	}
+	return `${baseName}_next`;
+}
+
+export async function createNextNote(app: App, file: TFile, settings: MyPluginSettings): Promise<TFile> {
 	const folderPath = file.parent?.path ?? "";
 	const baseName = file.basename;
+	const nextBaseName = getNextNoteBaseName(baseName, settings);
 
-	let newName = `${baseName}_next`;
+	let newName = nextBaseName;
 	let newPath = folderPath ? `${folderPath}/${newName}.md` : `${newName}.md`;
 
 	let counter = 1;
 	while (app.vault.getAbstractFileByPath(newPath)) {
-		newName = `${baseName}_next ${counter}`;
+		newName = `${nextBaseName} ${counter}`;
 		newPath = folderPath ? `${folderPath}/${newName}.md` : `${newName}.md`;
 		counter++;
 	}
